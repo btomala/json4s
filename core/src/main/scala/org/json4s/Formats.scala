@@ -21,7 +21,8 @@ import java.util.{Date, TimeZone}
 import reflect.Reflector
 import annotation.implicitNotFound
 import java.lang.reflect.Type
-import org.json4s.prefs.EmptyValueStrategy
+
+import org.json4s.prefs.{CamelSnakeTransformation, EmptyValueStrategy, IdentityTransformation, KeyTransformation}
 
 object Formats {
   def read[T](json: JValue)(implicit reader: Reader[T]): T = reader.read(json)
@@ -51,6 +52,7 @@ trait Formats extends Serializable { self: Formats =>
   def strictOptionParsing: Boolean = false
   def strictArrayExtraction: Boolean = false
   def alwaysEscapeUnicode: Boolean = false
+  def keyTransformation: KeyTransformation = IdentityTransformation
 
   /**
    * The name of the field in JSON where type hints are added (jsonClass by default)
@@ -80,7 +82,9 @@ trait Formats extends Serializable { self: Formats =>
                     wStrictOptionParsing: Boolean = self.strictOptionParsing,
                     wStrictArrayExtraction: Boolean = self.strictArrayExtraction,
                     wAlwaysEscapeUnicode: Boolean = self.alwaysEscapeUnicode,
-                    wEmptyValueStrategy: EmptyValueStrategy = self.emptyValueStrategy): Formats =
+                    wEmptyValueStrategy: EmptyValueStrategy = self.emptyValueStrategy,
+                    wKeyTransformation: KeyTransformation = self.keyTransformation
+  ): Formats =
     new Formats {
       def dateFormat: DateFormat = wDateFormat
       override def typeHintFieldName: String = wTypeHintFieldName
@@ -98,6 +102,7 @@ trait Formats extends Serializable { self: Formats =>
       override def strictArrayExtraction: Boolean = wStrictArrayExtraction
       override def alwaysEscapeUnicode: Boolean = wAlwaysEscapeUnicode
       override def emptyValueStrategy: EmptyValueStrategy = wEmptyValueStrategy
+      override def keyTransformation: KeyTransformation = wKeyTransformation
     }
 
   def withBigInt: Formats = copy(wWantsBigInt = true)
@@ -127,8 +132,10 @@ trait Formats extends Serializable { self: Formats =>
   def strict: Formats = copy(wStrictOptionParsing = true, wStrictArrayExtraction = true)
 
   def nonStrict: Formats = copy(wStrictOptionParsing = false, wStrictArrayExtraction = false)
-  
+
   def disallowNull: Formats = copy(wAllowNull = false)
+
+  def withCamelSnakeTransformation: Formats = copy(wKeyTransformation = CamelSnakeTransformation)
 
   /**
    * Adds the specified type hints to this formats.
@@ -367,6 +374,8 @@ trait DefaultFormats extends Formats {
   override val strictOptionParsing: Boolean = false
   override val emptyValueStrategy: EmptyValueStrategy = EmptyValueStrategy.default
   override val allowNull: Boolean = true
+  override val keyTransformation: KeyTransformation = IdentityTransformation
+
 
   val dateFormat: DateFormat = new DateFormat {
     def parse(s: String) = try {
